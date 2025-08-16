@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Chat AI – JAREMIS</title>
+  <style>
+    /* ===== Reset & tokens ===== */
+    *,*::before,*::after{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans";
+      background:#0b0f14; color:#e6edf3; line-height:1.5; overflow:hidden;
+    }
+    a{color:#4f9cff; text-decoration:none}
+
+    :root{
+      --panel:#0f1720; --soft:#111827; --muted:#9db0c7; --border:#1f2a39;
+      --accent:#4f9cff; --accent-2:#7cd4ff;
+      --user:#1b3a2a; --assistant:#13243a;
+      --radius:16px; --shadow:0 4px 28px rgba(0,0,0,.3);
+    }
+
+    /* ===== Layout ===== */
+    header{
+      position:sticky; top:0; z-index:10;
+      background:rgba(8,12,18,.6); backdrop-filter:blur(6px);
+      border-bottom:1px solid var(--border);
+      display:flex; align-items:center; justify-content:space-between;
+      padding:12px 14px;
+    }
+    .brand{display:flex; align-items:center; gap:10px}
+    .logo{width:26px; height:26px; border-radius:8px; background:linear-gradient(135deg, var(--accent), var(--accent-2))}
+    .badge{font-size:12px; color:var(--muted); padding:2px 8px; border:1px solid var(--border); border-radius:999px}
+
+    .container{height:calc(100vh - 56px); display:flex; flex-direction:column}
+
+    .chat{
+      flex:1; overflow:auto; padding:16px 12px 12px;
+      background:
+        radial-gradient(900px 400px at 15% -10%, rgba(79,156,255,.08), transparent 60%),
+        radial-gradient(700px 350px at 90% 0%, rgba(124,212,255,.06), transparent 60%);
+    }
+
+    .bubble{max-width:900px; margin:0 auto 14px; display:flex; gap:10px}
+    .avatar{width:32px; height:32px; border-radius:10px; display:grid; place-items:center; flex:0 0 32px}
+    .content{flex:1; padding:12px 14px; border:1px solid var(--border); border-radius:18px; box-shadow:var(--shadow)}
+    .content p{margin:0 0 8px} .content p:last-child{margin:0}
+
+    .user .avatar{background:linear-gradient(135deg, #8bffbd33, #2dcc7033); border:1px solid #2dcc7060}
+    .user .content{background:linear-gradient(180deg, #0f1618, var(--user))}
+    .assistant .avatar{background:linear-gradient(135deg, #7cd4ff33, #4f9cff33); border:1px solid #4f9cff60}
+    .assistant .content{background:linear-gradient(180deg, #0f151d, var(--assistant))}
+
+    .head{display:flex; align-items:center; justify-content:space-between; margin-bottom:6px}
+    .small{font-size:12px; color:var(--muted)}
+    .copy{background:transparent; color:var(--muted); border:1px solid var(--border); border-radius:10px; padding:4px 8px; font-size:12px}
+
+    pre,code{font-family: ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace}
+    pre{background:#0b0f14; border:1px solid var(--border); border-radius:12px; padding:10px; overflow:auto}
+
+    .composer{
+      position:sticky; bottom:0; left:0; right:0; padding:12px;
+      background:linear-gradient(180deg, transparent, #0b0f14 40%);
+    }
+    .composer .inner{
+      display:flex; gap:8px; align-items:flex-end;
+      background:var(--panel); border:1px solid var(--border);
+      border-radius:18px; padding:10px;
+      max-width:980px; margin:0 auto;
+    }
+    textarea{
+      flex:1; min-height:44px; max-height:160px; resize:none; outline:none;
+      background:#0c121a; color:#e6edf3; border:1px solid var(--border);
+      border-radius:12px; padding:10px 12px; line-height:1.45;
+    }
+    .btn{background:var(--accent); color:#071019; border:none; border-radius:12px; padding:10px 14px; font-weight:700}
+    .btn.secondary{background:transparent; color:#e6edf3; border:1px solid var(--border)}
+    .hint{max-width:980px; margin:6px auto 0; color:var(--muted); font-size:12px; padding:0 4px}
+
+    /* typing dots */
+    .typing{display:inline-flex; gap:6px; align-items:center}
+    .dot{width:6px; height:6px; border-radius:999px; background:var(--muted); opacity:.5; animation:blink 1.2s infinite}
+    .dot:nth-child(2){animation-delay:.15s} .dot:nth-child(3){animation-delay:.3s}
+    @keyframes blink{0%,80%,100%{opacity:.2}40%{opacity:1}}
+
+    /* mobile tweaks */
+    @media (max-width:640px){
+      .content{border-radius:16px}
+      textarea{font-size:15px}
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <div class="logo" aria-hidden="true"></div>
+      <strong>Chat AI</strong>
+      <span class="badge">JAREMIS</span>
+    </div>
+    <div class="small">Beta</div>
+  </header>
+
+  <div class="container">
+    <section id="chat" class="chat">
+      <!-- Lời chào -->
+      <div class="bubble assistant">
+        <div class="avatar">🤖</div>
+        <div class="content">
+          <div class="head"><div class="small">Trợ lý</div></div>
+          <p>Chào bạn 👋 Mình là JAREMIS. Hãy nhập triệu chứng theo dạng: <em>ho, đau đầu, sốt</em>.</p>
+          <p class="small">Mẹo: <kbd>Shift</kbd> + <kbd>Enter</kbd> để xuống dòng • <kbd>Enter</kbd> để gửi.</p>
+        </div>
+      </div>
+    </section>
+
+    <footer class="composer">
+      <form id="composerForm" class="inner">
+        <textarea id="input" placeholder="Nhập triệu chứng..."></textarea>
+        <button type="submit" class="btn">Gửi</button>
+      </form>
+      <div class="hint">Model: <b>JAREMIS beta</b> • Trạng thái: <span id="status">Rảnh</span></div>
+    </footer>
+  </div>
+
+  <script>
+    const chatEl = document.getElementById('chat');
+    const formEl = document.getElementById('composerForm');
+    const inputEl = document.getElementById('input');
+    const statusEl = document.getElementById('status');
+
+    function mdEscape(s){
+      return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+    }
+
+    function bubble(role, html){
+      const wrap = document.createElement('div');
+      wrap.className = 'bubble ' + (role === 'user' ? 'user' : 'assistant');
+      wrap.innerHTML = `
+        <div class="avatar">${role === 'user' ? '🧑‍💻' : '🤖'}</div>
+        <div class="content">
+          <div class="head">
+            <div class="small">${role === 'user' ? 'Bạn' : 'Trợ lý'}</div>
+            <button class="copy" type="button">Sao chép</button>
+          </div>
+          <div class="md">${html}</div>
+        </div>
+      `;
+      wrap.querySelector('.copy').onclick = () => {
+        const t = wrap.querySelector('.md').innerText;
+        navigator.clipboard.writeText(t);
+      };
+      return wrap;
+    }
+
+    function typingOn(){
+      const el = document.createElement('div');
+      el.className = 'bubble assistant';
+      el.innerHTML = `<div class="avatar">🤖</div>
+        <div class="content"><span class="typing"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span></div>`;
+      chatEl.appendChild(el);
+      chatEl.scrollTop = chatEl.scrollHeight;
+      return { remove(){ el.remove(); } };
+    }
+
+    async function callApi(text){
+      // Gọi API Flask của bạn
+      const res = await fetch("https://api-jaremis.onrender.com/predict", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ symptoms: [text], top_k: 5 })
+      });
+      if(!res.ok){
+        const msg = await res.text().catch(()=>res.statusText);
+        throw new Error(`HTTP ${res.status}: ${msg}`);
+      }
+      return res.json();
+    }
+
+    function formatAnswer(data){
+      if(data.error){
+        return `❌ Lỗi: ${mdEscape(data.error)}`;
+      }
+      let out = "";
+      out += `🩺 Bệnh dự đoán chính: <b>${mdEscape(data.disease || '—')}</b> (độ tin cậy ${(Number(data.confidence||0)*100).toFixed(1)}%)<br>`;
+      out += `📊 Mức độ nghiêm trọng: ${mdEscape(data.severity_level||'—')} (score=${(Number(data.severity_score||0)*100).toFixed(1)}%)<br>`;
+      out += `💡 Lời khuyên: ${mdEscape(data.advice || '—')}<br><br>`;
+      if(Array.isArray(data.top_probabilities) && data.top_probabilities.length){
+        out += `🔎 Top 5 bệnh có khả năng cao:<br>`;
+        data.top_probabilities.slice(0,5).forEach((it,i)=>{
+          out += `${i+1}. ${mdEscape(it.disease||'—')} — ${(Number(it.prob||0)*100).toFixed(1)}%<br>`;
+        });
+      }
+      return out;
+    }
+
+    async function sendMessage(text){
+      // Hiển thị tin người dùng
+      chatEl.appendChild(bubble('user', mdEscape(text)));
+      chatEl.scrollTop = chatEl.scrollHeight;
+
+      // Gõ đang trả lời
+      const typing = typingOn();
+      statusEl.textContent = 'Đang trả lời...';
+
+      try{
+        const data = await callApi(text);
+        typing.remove();
+        const html = formatAnswer(data);
+        chatEl.appendChild(bubble('assistant', html));
+        chatEl.scrollTop = chatEl.scrollHeight;
+      }catch(err){
+        typing.remove();
+        chatEl.appendChild(bubble('assistant', mdEscape('❌ Lỗi kết nối hoặc máy chủ: ' + (err.message || err))));
+        chatEl.scrollTop = chatEl.scrollHeight;
+      }finally{
+        statusEl.textContent = 'Rảnh';
+      }
+    }
+
+    // Submit
+    formEl.addEventListener('submit', (e)=>{
+      e.preventDefault();
+      const text = (inputEl.value||'').trim();
+      if(!text) return;
+      inputEl.value = '';
+      sendMessage(text);
+    });
+
+    // Enter để gửi, Shift+Enter để xuống dòng
+    inputEl.addEventListener('keydown', (e)=>{
+      if(e.key === 'Enter' && !e.shiftKey){
+        e.preventDefault();
+        formEl.requestSubmit();
+      }
+    });
+  </script>
+</body>
+</html>
